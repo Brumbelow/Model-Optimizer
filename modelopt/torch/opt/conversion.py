@@ -513,6 +513,9 @@ def save(model: nn.Module, f: str | os.PathLike | BinaryIO, **kwargs) -> None:
     torch.save(ckpt_dict, f, **kwargs)
 
 
+_MODELOPT_STATE_REQUIRED_KEYS = ("modelopt_state_dict", "modelopt_version")
+
+
 def load_modelopt_state(modelopt_state_path: str | os.PathLike, **kwargs) -> dict[str, Any]:
     """Load the modelopt state from a file.
 
@@ -522,9 +525,27 @@ def load_modelopt_state(modelopt_state_path: str | os.PathLike, **kwargs) -> dic
 
     Returns:
         A modelopt state dictionary describing the modifications to the model.
+
+    Raises:
+        ValueError: if the loaded object is not a valid modelopt state dictionary
+            (not a dict or missing required keys).
     """
     kwargs.setdefault("map_location", "cpu")
-    return safe_load(modelopt_state_path, **kwargs)
+    state = safe_load(modelopt_state_path, **kwargs)
+
+    if not isinstance(state, dict):
+        raise ValueError(
+            f"{modelopt_state_path!r} is not a valid modelopt state file: "
+            f"expected a dict, got {type(state).__name__}."
+        )
+    missing = [k for k in _MODELOPT_STATE_REQUIRED_KEYS if k not in state]
+    if missing:
+        raise ValueError(
+            f"{modelopt_state_path!r} is not a valid modelopt state file: "
+            f"missing required keys {missing} "
+            f"(expected {list(_MODELOPT_STATE_REQUIRED_KEYS)})."
+        )
+    return state
 
 
 def restore_from_modelopt_state(

@@ -337,3 +337,25 @@ def test_chained_modes_preserve_forward_patching_during_quantize():
     assert called["patched_forward"] == 1
     assert called["input_q"] == 1
     assert called["weight_q"] == 1
+
+
+def test_load_modelopt_state_rejects_non_dict(tmp_path):
+    path = tmp_path / "bad_state.pt"
+    torch.save([1, 2, 3], path)
+    with pytest.raises(ValueError, match="not a valid modelopt state file"):
+        mto.load_modelopt_state(path)
+
+
+def test_load_modelopt_state_rejects_missing_keys(tmp_path):
+    path = tmp_path / "incomplete_state.pt"
+    torch.save({"modelopt_state_dict": []}, path)
+    with pytest.raises(ValueError, match="missing required keys"):
+        mto.load_modelopt_state(path)
+
+
+def test_load_modelopt_state_round_trip(tmp_path):
+    model = SimpleLinearModel()
+    path = tmp_path / "good_state.pt"
+    torch.save(mto.modelopt_state(model), path)
+    loaded = mto.load_modelopt_state(path)
+    assert set(loaded) >= {"modelopt_state_dict", "modelopt_version"}
